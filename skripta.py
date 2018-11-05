@@ -12,8 +12,6 @@ frontpage_filename = "glavna.html"
 csv_filename = "bil.csv"
 
 def download_url_to_string(url):
-    '''This function takes a URL as argument and tries to download it
-    using requests. Upon success, it returns the page contents as string.'''
     try:
         r = requests.get(url)
         # del kode, ki morda sproži napako
@@ -25,9 +23,6 @@ def download_url_to_string(url):
     return r.text
     
 def save_string_to_file(text, directory, filename):
-    '''Write "text" to the file "filename" located in directory "directory",
-    creating "directory" if necessary. If "directory" is the empty string, use
-    the current directory.'''
     os.makedirs(directory, exist_ok=True)
     path = os.path.join(directory, filename)
     with open(path, 'w', encoding='utf-8') as file_out:
@@ -41,13 +36,11 @@ def save_frontpage():
 
 
 def read_file_to_string(directory, filename):
-    '''Return the contents of the file "directory"/"filename" as a string.'''
     path = os.path.join(directory, filename)
     with open(path, 'r') as file_in:
         return file_in.read()
 
 def page_to_ads(page):
-    '''Split "page" to a list of advertisement blocks.'''
     ads = []
     #prvi_ad = []                               #TO ZDEJ ŠTIMA(MAL GRDO THO)
     #zadnji_ad = []
@@ -60,32 +53,61 @@ def page_to_ads(page):
     return prvi_ad + ads + zadnji_ad
 
 def get_dict_from_ad_block(block):
-    '''Build a dictionary containing the name, description and price
-    of an ad block.'''
-    rx = re.compile(r'data-rank="(?P<rank>\d+)"',
-                    #r'data-artist="(?P<artist>\w+.*)'
-                    #r'data-ttile="(?P<title>\w+.*)"',
-                    #r'<div class="chart-list-item__last-week">(?P<last_week>\d+)</div>'
-                    #r'<div class="chart-list-item__weeks-at-one">(?P<peek_position>\d+)</div>'
-                    #r'<div class="chart-list-item__weeks-on-chart">(?P<weeks_on_chart>\d+)</div>',
+    rx = re.compile(r'data-rank="(?P<rank>\d+)".*data-artist="(?P<artist>.*)" data-title="(?P<title>.*)" data-has-content'
+                    r'.*<div class="chart-list-item__last-week">(?P<last_week>\d+)</div>'
+                    r'.*<div class="chart-list-item__weeks-at-one">(?P<peek_position>\d+)</div>'
+                    r'.*<div class="chart-list-item__weeks-on-chart">(?P<weeks_on_chart>\d+)</div>',
                     re.DOTALL)
-    data = re.search(rx, block)
-    ad_dict = data.groupdict()
+    rx_nove = re.compile(r'data-rank="(?P<rank>\d+)".*data-artist="(?P<artist>.*)" data-title="(?P<title>.*)" data-has-content', re.DOTALL)
+    try:
+        data = re.search(rx, block)
+        ad_dict = data.groupdict()
+    except:
+        data = re.search(rx_nove, block)
+        ad_dict = data.groupdict()
+        ad_dict["last_week"] = "None"
+        ad_dict["peek_position"] = "None"
+        ad_dict["weeks_on_chart"] = "None"
     return ad_dict
 
 def ads_from_file(directory, filename, page):
-    #sez = page_to_ads(read_file_to_string(directory, filename))
     ads = []
-    #prvi_ad = []                               #TO ZDEJ ŠTIMA(MAL GRDO THO)
-    #zadnji_ad = []
     #prvi album je malce posebno predstavljen
     prvi_ad = [ujem.group(0) for ujem in re.finditer(r'<div class="container container--no-background chart-number-one">(.*?)<div class="ad-container leaderboard leaderboard--top">', page, re.DOTALL)]
     zadnji_ad = [mec.group(0) for mec in re.finditer(r'data-rank="200"(.*?)WEEKS ON CHART', page, re.DOTALL)]
     for i in range(2, 200): 
         for ujemanje in re.finditer(r'(data-rank="{}".*?)data-rank="{}"'.format(i, i+1), page, re.DOTALL):
             ads.append(ujemanje.group(1))
+    ads += zadnji_ad
     sez2 = []
     for block in ads:
         c = get_dict_from_ad_block(block)
         sez2.append(c)
+    rx1 = re.compile(r'<div class="chart-number-one__weeks-at-one">(?P<weeks_at_no1>\d+)</div>'
+                     r'.*<div class="chart-number-one__weeks-on-chart">(?P<weeks_on_chart>\d+)</div>'
+                     r'.*<div class="chart-number-one__title">(?P<title>.*?)</div>'
+                     r'.*<div class="chart-number-one__artist">\\n(?P<artist>.*?)\\n</div>',
+                     re.DOTALL)
+    data = re.search(rx1, str(prvi_ad))
+    #prvi_dict = data.groupdict()    #to je slovar prvega albuma
     return sez2
+
+def write_csv(fieldnames, rows, directory, filename):
+    '''Write a CSV file to directory/filename. The fieldnames must be a list of
+    strings, the rows a list of dictionaries each mapping a fieldname to a
+    cell-value.'''
+    os.makedirs(directory, exist_ok=True)
+    path = os.path.join(directory, filename)
+    with open(path, 'w') as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
+    return None
+
+def write_bil_to_csv(ads, directory, filename):
+    write_csv(ads[0].keys(), ads, directory, filename)
+
+def bil_to_csv_save(ads):
+    write_bil_to_csv(ads, bil_directory, csv_filename)
+    
