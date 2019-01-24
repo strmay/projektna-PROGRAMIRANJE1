@@ -62,6 +62,9 @@ def get_dict_from_ad_block(block):
     try:
         data = re.search(rx, block)
         ad_dict = data.groupdict()
+        ad_dict["last_week"] = int(ad_dict["last_week"])
+        ad_dict["peek_position"] = int(ad_dict["peek_position"])
+        ad_dict["weeks_on_chart"] = int(ad_dict["weeks_on_chart"])
     except:
         data = re.search(rx_nove, block)
         ad_dict = data.groupdict()
@@ -89,7 +92,6 @@ def ads_from_file(directory, filename, page):
                      r'.*<div class="chart-number-one__artist">\\n(?P<artist>.*?)\\n</div>',
                      re.DOTALL)
     data = re.search(rx1, str(prvi_ad))
-    #prvi_dict = data.groupdict()    #to je slovar prvega albuma
     return sez2
 
 def write_csv(fieldnames, rows, directory, filename):
@@ -110,4 +112,4 @@ def write_bil_to_csv(ads, directory, filename):
 
 def bil_to_csv_save(ads):
     write_bil_to_csv(ads, bil_directory, csv_filename)
-    
+
